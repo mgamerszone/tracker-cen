@@ -21,37 +21,50 @@ def authorize_gsheet(json_keyfile_path):
 def update_sheet():
     client = authorize_gsheet("credentials.json")
     sheet = client.open(SHEET_NAME).get_worksheet(WORKSHEET_INDEX)
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
+
+    rows = sheet.get_all_values()
+    headers = rows[0]
+    df = pd.DataFrame(rows[1:], columns=headers)
 
     for i, row in df.iterrows():
-        our_price = float(str(row["Cena u nas"]).replace(",", ".") or 0)
+        try:
+            our_price = float(str(row["Cena u nas"]).replace(",", ".") or 0)
 
-        def try_update(column_prefix, get_price_func):
-            link = row.get(f"Link {column_prefix}")
-            if link:
-                try:
-                    competitor_price = get_price_func(link)
-                    df.at[i, f"Cena {column_prefix}"] = competitor_price
-                    df.at[i, f"Różnica {column_prefix}"] = round(our_price - competitor_price, 2)
-                except Exception as e:
-                    print(f"Błąd przy {column_prefix}: {e}")
+            def try_update(prefix, scraper_func):
+                link_col = f"Link {prefix}"
+                price_col = f"Cena {prefix}"
+                diff_col = f"Różnica {prefix}"
+                link = row.get(link_col)
 
-        try_update("Vaporshop", get_price_vaporshop)
-        try_update("Vapefully", get_price_vapefully)
-        try_update("CBDRemedium", get_price_cbdremedium)
-        try_update("Konopnysklep", get_price_konopnysklep)
-        try_update("Unikatowe", get_price_unikatowe)
+                if link and link.startswith("http"):
+                    try:
+                        price = scraper_func(link)
+                        if price:
+                            df.at[i, price_col] = str(price)
+                            df.at[i, diff_col] = str(round(our_price - price, 2))
+                    except Exception as e:
+                        print(f"Błąd pobierania {prefix}: {e}")
 
-        competitor_prices = [
-            df.at[i, f"Cena {k}"] for k in ["Vaporshop", "Vapefully", "CBDRemedium", "Konopnysklep", "Unikatowe"]
-            if df.at[i, f"Cena {k}"] != ""
-        ]
-        min_price = min([float(p) for p in competitor_prices], default=99999)
-        if our_price > min_price:
-            df.at[i, "Status"] = "Można obniżyć"
-        else:
-            df.at[i, "Status"] = "Mamy najtaniej"
+            try_update("Vaporshop", get_price_vaporshop)
+            try_update("Vapefully", get_price_vapefully)
+            try_update("CBDRemedium", get_price_cbdremedium)
+            try_update("Konopnysklep", get_price_konopnysklep)
+            try_update("Unikatowe", get_price_unikatowe)
+
+            competitor_cols = ["Cena Vaporshop", "Cena Vapefully", "Cena CBDRemedium", "Cena Konopnysklep", "Cena Unikatowe"]
+            prices = [float(str(df.at[i, col]).replace(",", "."))
+                      for col in competitor_cols if df.at[i, col].strip() != ""]
+            min_price = min(prices) if prices else None
+
+            if min_price and our_price > min_price:
+                df.at[i, "Status"] = "Można obniżyć"
+            elif min_price:
+                df.at[i, "Status"] = "Mamy najtaniej"
+            else:
+                df.at[i, "Status"] = ""
+
+        except Exception as e:
+            print(f"Błąd w wierszu {i + 2}: {e}")
 
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
