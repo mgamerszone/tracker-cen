@@ -9,7 +9,7 @@ from scraper import (
     get_price_unikatowe
 )
 
-SHEET_NAME = "Tracker cen z poprawionymi nazwami"
+SHEET_NAME = "Tracker_cen_konkurencji"
 WORKSHEET_INDEX = 0
 
 def authorize_gsheet(json_keyfile_path):
