@@ -96,14 +96,18 @@ def update_sheet():
             dzialanie = round((min_price - 10) - our_price, 2)
             df.iat[dzialanie_row, col_index] = dzialanie
 
+            # Wdrożona dokładna logika statusu:
             if dzialanie == 0:
-                df.iat[status_row, col_index] = "Mamy najtaniej"
+                df.iat[status_row, col_index] = "✅ Mamy najtaniej"
             elif 0 < dzialanie <= 20:
-                df.iat[status_row, col_index] = "Można podnieść"
+                df.iat[status_row, col_index] = "⚠️ Można podnieść"
             elif dzialanie > 20:
-                df.iat[status_row, col_index] = "Za tanio"
+                df.iat[status_row, col_index] = "💸 Za tanio"
             elif dzialanie < 0:
-                df.iat[status_row, col_index] = "Można obniżyć"
+                df.iat[status_row, col_index] = "🔻 Można obniżyć"
+        else:
+            status_row = fields[1:].tolist().index("Status") + 1
+            df.iat[status_row, col_index] = ""
 
     sheet.update(df.values.tolist())
 
