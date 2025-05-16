@@ -101,7 +101,7 @@ def update_sheet():
             dzialanie = round((min_price - 10) - our_price, 2)
             df.iat[dzialanie_row, col_index] = dzialanie
 
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    sheet.update(df.values.tolist())
 
 if __name__ == "__main__":
     update_sheet()
