@@ -33,7 +33,6 @@ def update_sheet():
     rows = sheet.get_all_values()
     df = pd.DataFrame(rows)
 
-    # Indeksy wierszy licząc od 0
     price_rows = {
         "Cena u nas": 4,
         "Cena Vaporshop": 5,
@@ -56,30 +55,28 @@ def update_sheet():
         "Link Vapuj": 19
     }
 
-    headers = df.iloc[0, 1:]  # Nagłówki produktów
-    fields = df.iloc[:, 0]    # Wiersze nazw
+    headers = df.iloc[0, 1:]
+    fields = df.iloc[:, 0]
 
     for col_index, product_name in enumerate(headers, start=1):
-        # Pobierz linki
         getval = lambda label: df.iat[link_rows[label], col_index] if label in link_rows else ""
         our_link = getval("Link JaraJTo")
         our_price = get_price_jarajto(our_link) if our_link else parse_price(df.iat[price_rows["Cena u nas"], col_index])
-        if our_price:
-            df.iat[price_rows["Cena u nas"], col_index] = str(our_price)
+        if our_price is not None:
+            df.iat[price_rows["Cena u nas"], col_index] = our_price
 
         def try_update(label_link, label_price, scraper_func):
             link = getval(label_link)
             if link and link.startswith("http"):
                 try:
                     price = scraper_func(link)
-                    if price:
-                        df.iat[price_rows[label_price], col_index] = str(price)
+                    if price is not None:
+                        df.iat[price_rows[label_price], col_index] = price
                         return price
                 except Exception as e:
                     print(f"[!] Błąd przy {label_link}: {e}")
             return None
 
-        # Pobieranie cen konkurencji
         competitor_prices = [
             try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
             try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
@@ -91,7 +88,6 @@ def update_sheet():
         ]
         competitor_prices = [p for p in competitor_prices if p is not None]
 
-        # Aktualizacja statusu i działania
         if our_price is not None and competitor_prices:
             min_price = min(competitor_prices)
             status_row = fields[1:].tolist().index("Status") + 1
@@ -103,7 +99,7 @@ def update_sheet():
                 df.iat[status_row, col_index] = "Mamy najtaniej"
 
             dzialanie = round((min_price - 10) - our_price, 2)
-            df.iat[dzialanie_row, col_index] = str(dzialanie)
+            df.iat[dzialanie_row, col_index] = dzialanie
 
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
