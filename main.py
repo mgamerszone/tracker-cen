@@ -19,9 +19,6 @@ def authorize_gsheet(json_keyfile_path):
     client = gspread.authorize(creds)
     return client
 
-def normalize_header(h):
-    return h.strip().replace("\xa0", " ").replace("\u00a0", " ")
-
 def parse_price(val):
     try:
         return float(str(val).replace(",", ".").strip())
@@ -31,60 +28,59 @@ def parse_price(val):
 def update_sheet():
     client = authorize_gsheet("credentials.json")
     sheet = client.open(SHEET_NAME).get_worksheet(WORKSHEET_INDEX)
-
     rows = sheet.get_all_values()
-    headers = [normalize_header(h) for h in rows[0]]
-    df = pd.DataFrame(rows[1:], columns=headers)
+    df = pd.DataFrame(rows)
 
-    for i, row in df.iterrows():
-        try:
-            jarajto_url = row.get("Link do produktu")
-            if jarajto_url:
-                our_price = get_price_jarajto(jarajto_url)
-                if our_price:
-                    df.at[i, "Cena u nas"] = str(our_price)
+    headers = df.iloc[0, 1:]  # Nagłówki produktów (kolumny B →)
+    fields = df.iloc[:, 0]    # Pola: Cena u nas, Link Vaporshop, itd.
+
+    for col_index, product_name in enumerate(headers, start=1):
+        data = df.iloc[:, col_index]
+        values = {fields[row]: df.iat[row, col_index] for row in range(1, len(fields))}
+
+        # Zbieranie linków i aktualnych danych
+        our_url = values.get("Link JaraJTo", "")
+        our_price = get_price_jarajto(our_url) if our_url else parse_price(values.get("Cena u nas"))
+
+        if our_price:
+            df.at[fields[2:].tolist().index("Cena u nas") + 1, col_index] = str(our_price)
+
+        # Funkcja pomocnicza
+        def try_update(link_label, price_label, scraper_func):
+            link = values.get(link_label, "")
+            if link and link.startswith("http"):
+                try:
+                    price = scraper_func(link)
+                    if price:
+                        df.at[fields[2:].tolist().index(price_label) + 1, col_index] = str(price)
+                        return price
+                except Exception as e:
+                    print(f"[!] Błąd {link_label}:", e)
+            return None
+
+        # Pobierz ceny konkurencji
+        konkurencyjne = [
+            try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
+            try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
+            try_update("Link CBDRemedium", "Cena CBDRemedium", get_price_cbdremedium),
+            try_update("Link Konopnysklep", "Cena Konopnysklep", get_price_konopnysklep),
+            try_update("Link Unikatowe", "Cena Unikatowe", get_price_unikatowe)
+        ]
+        konkurencyjne = [p for p in konkurencyjne if p is not None]
+
+        # Wylicz status i działanie
+        if our_price is not None and konkurencyjne:
+            min_price = min(konkurencyjne)
+            status_row = fields[1:].tolist().index("Status") + 1
+            dzialanie_row = fields[1:].tolist().index("Działanie") + 1
+
+            if our_price > min_price:
+                df.iat[status_row, col_index] = "Można obniżyć"
             else:
-                our_price = parse_price(row.get("Cena u nas"))
+                df.iat[status_row, col_index] = "Mamy najtaniej"
 
-            def try_update(prefix, scraper_func):
-                link_col = f"Link {prefix}"
-                price_col = f"Cena {prefix}"
-                diff_col = f"Różnica {prefix}"
-                link = row.get(link_col)
-                if link and link.startswith("http"):
-                    try:
-                        price = scraper_func(link)
-                        if price:
-                            df.at[i, price_col] = str(price)
-                            if our_price is not None:
-                                df.at[i, diff_col] = str(round(our_price - price, 2))
-                    except Exception as e:
-                        print(f"[!] Błąd pobierania {prefix}: {e}")
-
-            try_update("Vaporshop", get_price_vaporshop)
-            try_update("Vapefully", get_price_vapefully)
-            try_update("CBDRemedium", get_price_cbdremedium)
-            try_update("Konopnysklep", get_price_konopnysklep)
-            try_update("Unikatowe", get_price_unikatowe)
-
-            competitor_cols = [
-                "Cena Vaporshop", "Cena Vapefully", "Cena CBDRemedium",
-                "Cena Konopnysklep", "Cena Unikatowe"
-            ]
-            competitor_prices = [parse_price(df.at[i, col]) for col in competitor_cols if df.at[i, col] != ""]
-            competitor_prices = [p for p in competitor_prices if p is not None]
-
-            if our_price is not None and competitor_prices:
-                min_price = min(competitor_prices)
-                if our_price > min_price:
-                    df.at[i, "Status"] = "Można obniżyć"
-                else:
-                    df.at[i, "Status"] = "Mamy najtaniej"
-            else:
-                df.at[i, "Status"] = ""
-
-        except Exception as e:
-            print(f"[!] Błąd w wierszu {i + 2}:", e)
+            dzialanie = round((min_price - 10) - our_price, 2)
+            df.iat[dzialanie_row, col_index] = str(dzialanie)
 
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
