@@ -2,6 +2,7 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from scraper import (
+    get_price_jarajto,
     get_price_vaporshop,
     get_price_vapefully,
     get_price_cbdremedium,
@@ -37,7 +38,13 @@ def update_sheet():
 
     for i, row in df.iterrows():
         try:
-            our_price = parse_price(row.get("Cena u nas"))
+            jarajto_url = row.get("Link do produktu")
+            if jarajto_url:
+                our_price = get_price_jarajto(jarajto_url)
+                if our_price:
+                    df.at[i, "Cena u nas"] = str(our_price)
+            else:
+                our_price = parse_price(row.get("Cena u nas"))
 
             def try_update(prefix, scraper_func):
                 link_col = f"Link {prefix}"
@@ -60,7 +67,6 @@ def update_sheet():
             try_update("Konopnysklep", get_price_konopnysklep)
             try_update("Unikatowe", get_price_unikatowe)
 
-            # Status
             competitor_cols = [
                 "Cena Vaporshop", "Cena Vapefully", "Cena CBDRemedium",
                 "Cena Konopnysklep", "Cena Unikatowe"
@@ -78,7 +84,7 @@ def update_sheet():
                 df.at[i, "Status"] = ""
 
         except Exception as e:
-            print(f"[!] Błąd w wierszu {i + 2}: {e}")
+            print(f"[!] Błąd w wierszu {i + 2}:", e)
 
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
