@@ -8,7 +8,7 @@ HEADERS = {
 
 def extract_price(text):
     try:
-        clean = re.sub(r"[\s\xa0\u00a0]", "", text)  # usuwa spacje, nbsp i unicode spacje
+        clean = re.sub(r"[\s\xa0\u00a0]", "", text)
         match = re.search(r"(\d+[\.,]?\d*)", clean)
         if match:
             return float(match.group(0).replace(",", "."))
@@ -49,9 +49,11 @@ def get_price_vaporshop(url):
 def get_price_vapefully(url):
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
-    el = soup.select_one("span.woocommerce-Price-amount bdi")
-    if el:
-        return extract_price(el.text)
+    prices = soup.select("span.woocommerce-Price-amount bdi")
+    for el in prices:
+        price = extract_price(el.text)
+        if price and price > 0:
+            return price
     return None
 
 def get_price_cbdremedium(url):
