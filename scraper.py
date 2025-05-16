@@ -27,8 +27,8 @@ def get_price_from_span_content(url, class_name):
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
     el = soup.find("span", class_=class_name)
-    if el and el.has_attr("content"):
-        return extract_price(el["content"])
+    if el:
+        return extract_price(el.text)
     return None
 
 def get_price_from_div_content(url, class_name):
@@ -39,6 +39,7 @@ def get_price_from_div_content(url, class_name):
         return extract_price(el["content"])
     return None
 
+# Strony
 def get_price_jarajto(url):
     return get_price_from_em_tag(url, "main-price")
 
@@ -61,3 +62,9 @@ def get_price_konopnysklep(url):
 
 def get_price_unikatowe(url):
     return get_price_from_span_content(url, "price product-price")
+
+def get_price_magicvapo(url):
+    return get_price_from_span_content(url, "price")
+
+def get_price_vapuj(url):
+    return get_price_from_span_content(url, "price")

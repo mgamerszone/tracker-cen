@@ -7,7 +7,9 @@ from scraper import (
     get_price_vapefully,
     get_price_cbdremedium,
     get_price_konopnysklep,
-    get_price_unikatowe
+    get_price_unikatowe,
+    get_price_magicvapo,
+    get_price_vapuj
 )
 
 SHEET_NAME = "Tracker_cen_konkurencji"
@@ -31,21 +33,18 @@ def update_sheet():
     rows = sheet.get_all_values()
     df = pd.DataFrame(rows)
 
-    headers = df.iloc[0, 1:]  # Nagłówki produktów (kolumny B →)
-    fields = df.iloc[:, 0]    # Pola: Cena u nas, Link Vaporshop, itd.
+    headers = df.iloc[0, 1:]  # Nagłówki produktów
+    fields = df.iloc[:, 0]    # Nazwy pól w wierszach
 
     for col_index, product_name in enumerate(headers, start=1):
         data = df.iloc[:, col_index]
         values = {fields[row]: df.iat[row, col_index] for row in range(1, len(fields))}
 
-        # Zbieranie linków i aktualnych danych
         our_url = values.get("Link JaraJTo", "")
         our_price = get_price_jarajto(our_url) if our_url else parse_price(values.get("Cena u nas"))
-
         if our_price:
             df.at[fields[2:].tolist().index("Cena u nas") + 1, col_index] = str(our_price)
 
-        # Funkcja pomocnicza
         def try_update(link_label, price_label, scraper_func):
             link = values.get(link_label, "")
             if link and link.startswith("http"):
@@ -58,17 +57,17 @@ def update_sheet():
                     print(f"[!] Błąd {link_label}:", e)
             return None
 
-        # Pobierz ceny konkurencji
         konkurencyjne = [
             try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
             try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
             try_update("Link CBDRemedium", "Cena CBDRemedium", get_price_cbdremedium),
             try_update("Link Konopnysklep", "Cena Konopnysklep", get_price_konopnysklep),
-            try_update("Link Unikatowe", "Cena Unikatowe", get_price_unikatowe)
+            try_update("Link Unikatowe", "Cena Unikatowe", get_price_unikatowe),
+            try_update("Link MagicVapo", "Cena MagicVapo", get_price_magicvapo),
+            try_update("Link Vapuj", "Cena Vapuj", get_price_vapuj)
         ]
         konkurencyjne = [p for p in konkurencyjne if p is not None]
 
-        # Wylicz status i działanie
         if our_price is not None and konkurencyjne:
             min_price = min(konkurencyjne)
             status_row = fields[1:].tolist().index("Status") + 1
