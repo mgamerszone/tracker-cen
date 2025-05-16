@@ -8,7 +8,8 @@ HEADERS = {
 
 def extract_price(text):
     try:
-        match = re.search(r"\d+[\.,]?\d*", text)
+        clean = re.sub(r"[\s\xa0\u00a0]", "", text)  # usuwa spacje, nbsp i unicode spacje
+        match = re.search(r"(\d+[\.,]?\d*)", clean)
         if match:
             return float(match.group(0).replace(",", "."))
     except:
@@ -39,7 +40,6 @@ def get_price_from_div_content(url, class_name):
         return extract_price(el["content"])
     return None
 
-# Strony
 def get_price_jarajto(url):
     return get_price_from_em_tag(url, "main-price")
 

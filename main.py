@@ -33,31 +33,54 @@ def update_sheet():
     rows = sheet.get_all_values()
     df = pd.DataFrame(rows)
 
+    # Indeksy wierszy licząc od 0
+    price_rows = {
+        "Cena u nas": 4,
+        "Cena Vaporshop": 5,
+        "Cena Vapefully": 6,
+        "Cena CBDRemedium": 7,
+        "Cena Konopnysklep": 8,
+        "Cena Unikatowe": 9,
+        "Cena MagicVapo": 10,
+        "Cena Vapuj": 11
+    }
+
+    link_rows = {
+        "Link JaraJTo": 12,
+        "Link Vaporshop": 13,
+        "Link Vapefully": 14,
+        "Link CBDRemedium": 15,
+        "Link Konopnysklep": 16,
+        "Link Unikatowe": 17,
+        "Link MagicVapo": 18,
+        "Link Vapuj": 19
+    }
+
     headers = df.iloc[0, 1:]  # Nagłówki produktów
-    fields = df.iloc[:, 0]    # Nazwy pól w wierszach
+    fields = df.iloc[:, 0]    # Wiersze nazw
 
     for col_index, product_name in enumerate(headers, start=1):
-        data = df.iloc[:, col_index]
-        values = {fields[row]: df.iat[row, col_index] for row in range(1, len(fields))}
-
-        our_url = values.get("Link JaraJTo", "")
-        our_price = get_price_jarajto(our_url) if our_url else parse_price(values.get("Cena u nas"))
+        # Pobierz linki
+        getval = lambda label: df.iat[link_rows[label], col_index] if label in link_rows else ""
+        our_link = getval("Link JaraJTo")
+        our_price = get_price_jarajto(our_link) if our_link else parse_price(df.iat[price_rows["Cena u nas"], col_index])
         if our_price:
-            df.at[fields[2:].tolist().index("Cena u nas") + 1, col_index] = str(our_price)
+            df.iat[price_rows["Cena u nas"], col_index] = str(our_price)
 
-        def try_update(link_label, price_label, scraper_func):
-            link = values.get(link_label, "")
+        def try_update(label_link, label_price, scraper_func):
+            link = getval(label_link)
             if link and link.startswith("http"):
                 try:
                     price = scraper_func(link)
                     if price:
-                        df.at[fields[2:].tolist().index(price_label) + 1, col_index] = str(price)
+                        df.iat[price_rows[label_price], col_index] = str(price)
                         return price
                 except Exception as e:
-                    print(f"[!] Błąd {link_label}:", e)
+                    print(f"[!] Błąd przy {label_link}: {e}")
             return None
 
-        konkurencyjne = [
+        # Pobieranie cen konkurencji
+        competitor_prices = [
             try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
             try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
             try_update("Link CBDRemedium", "Cena CBDRemedium", get_price_cbdremedium),
@@ -66,10 +89,11 @@ def update_sheet():
             try_update("Link MagicVapo", "Cena MagicVapo", get_price_magicvapo),
             try_update("Link Vapuj", "Cena Vapuj", get_price_vapuj)
         ]
-        konkurencyjne = [p for p in konkurencyjne if p is not None]
+        competitor_prices = [p for p in competitor_prices if p is not None]
 
-        if our_price is not None and konkurencyjne:
-            min_price = min(konkurencyjne)
+        # Aktualizacja statusu i działania
+        if our_price is not None and competitor_prices:
+            min_price = min(competitor_prices)
             status_row = fields[1:].tolist().index("Status") + 1
             dzialanie_row = fields[1:].tolist().index("Działanie") + 1
 
