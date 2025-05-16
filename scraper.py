@@ -49,11 +49,12 @@ def get_price_vaporshop(url):
 def get_price_vapefully(url):
     r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
-    prices = soup.select("span.woocommerce-Price-amount bdi")
-    for el in prices:
-        price = extract_price(el.text)
-        if price and price > 0:
-            return price
+    promo = soup.select_one("ins > span.woocommerce-Price-amount bdi")
+    if promo:
+        return extract_price(promo.text)
+    regular = soup.select_one("span.woocommerce-Price-amount bdi")
+    if regular:
+        return extract_price(regular.text)
     return None
 
 def get_price_cbdremedium(url):
