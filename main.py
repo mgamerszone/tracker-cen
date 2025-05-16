@@ -96,7 +96,6 @@ def update_sheet():
             dzialanie = round((min_price - 10) - our_price, 2)
             df.iat[dzialanie_row, col_index] = dzialanie
 
-            # Finalna logika statusu
             if dzialanie == 0:
                 df.iat[status_row, col_index] = "✅ Mamy najtaniej"
             elif 0 < dzialanie <= 20:
@@ -109,7 +108,10 @@ def update_sheet():
             status_row = fields[1:].tolist().index("Status") + 1
             df.iat[status_row, col_index] = ""
 
-    sheet.update(df.values.tolist())
+    # Zapis bez nadpisywania wiersza nagłówków
+    for row_index in range(1, len(df)):
+        row_values = df.iloc[row_index].tolist()
+        sheet.update(f"A{row_index+1}", [row_values])
 
 if __name__ == "__main__":
     update_sheet()
