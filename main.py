@@ -34,32 +34,32 @@ def update_sheet():
     df = pd.DataFrame(rows)
 
     price_rows = {
-        "Cena u nas": 4,
-        "Cena Vaporshop": 5,
-        "Cena Vapefully": 6,
-        "Cena CBDRemedium": 7,
-        "Cena Konopnysklep": 8,
-        "Cena Unikatowe": 9,
-        "Cena MagicVapo": 10,
-        "Cena Vapuj": 11
+        "Cena u nas": 3,
+        "Cena Vaporshop": 4,
+        "Cena Vapefully": 5,
+        "Cena CBDRemedium": 6,
+        "Cena Konopnysklep": 7,
+        "Cena MagicVapo": 8,
+        "Cena Vapuj": 9,
+        "Cena Unikatowe": 10
     }
 
     link_rows = {
-        "Link JaraJTo": 12,
-        "Link Vaporshop": 13,
-        "Link Vapefully": 14,
-        "Link CBDRemedium": 15,
-        "Link Konopnysklep": 16,
-        "Link Unikatowe": 17,
-        "Link MagicVapo": 18,
-        "Link Vapuj": 19
+        "Link JaraJTo": 11,
+        "Link Vaporshop": 12,
+        "Link Vapefully": 13,
+        "Link CBDRemedium": 14,
+        "Link Konopnysklep": 15,
+        "Link MagicVapo": 16,
+        "Link Vapuj": 17,
+        "Link Unikatowe": 18
     }
 
     headers = df.iloc[0, 1:]
     fields = df.iloc[:, 0]
 
     for col_index, product_name in enumerate(headers, start=1):
-        getval = lambda label: df.iat[link_rows[label], col_index] if label in link_rows else ""
+        getval = lambda label: df.iat[link_rows[label], col_index] if label in link_rows and link_rows[label] < len(df) else ""
         our_link = getval("Link JaraJTo")
         our_price = get_price_jarajto(our_link) if our_link else parse_price(df.iat[price_rows["Cena u nas"], col_index])
         if our_price is not None:
@@ -90,16 +90,20 @@ def update_sheet():
 
         if our_price is not None and competitor_prices:
             min_price = min(competitor_prices)
-            status_row = fields[1:].tolist().index("Status") + 1
             dzialanie_row = fields[1:].tolist().index("Działanie") + 1
-
-            if our_price > min_price:
-                df.iat[status_row, col_index] = "Można obniżyć"
-            else:
-                df.iat[status_row, col_index] = "Mamy najtaniej"
+            status_row = fields[1:].tolist().index("Status") + 1
 
             dzialanie = round((min_price - 10) - our_price, 2)
             df.iat[dzialanie_row, col_index] = dzialanie
+
+            if dzialanie == 0:
+                df.iat[status_row, col_index] = "Mamy najtaniej"
+            elif 0 < dzialanie <= 20:
+                df.iat[status_row, col_index] = "Można podnieść"
+            elif dzialanie > 20:
+                df.iat[status_row, col_index] = "Za tanio"
+            elif dzialanie < 0:
+                df.iat[status_row, col_index] = "Można obniżyć"
 
     sheet.update(df.values.tolist())
 
