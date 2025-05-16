@@ -6,7 +6,7 @@
 - Porównuje je z Twoją ceną i zapisuje różnicę + status.
 
 ## 📦 Struktura arkusza:
-| Nazwa produktu | Link do produktu | Cena u nas | Link Vaporshop | Cena Vaporshop | Różnica Vaporshop | ... |
+| Nazwa produktu | Link do produktu | Cena u nas | Link Konkurent | Cena Konkurent | Różnica Konkurent | ... |
 
 ## 🧩 Dodawanie nowych produktów:
 1. Dodaj nowy wiersz.
