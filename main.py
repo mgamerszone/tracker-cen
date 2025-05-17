@@ -4,17 +4,17 @@ from oauth2client.service_account import ServiceAccountCredentials
 from scraper import (
     get_price_jarajto,
     get_price_vaporshop,
+    get_price_vapefully,
     get_price_cbdremedium,
     get_price_konopnysklep,
     get_price_unikatowe,
     get_price_magicvapo,
-    get_price_vapuj,
-    get_html  # <- potrzebne do Vapefully
+    get_price_vapuj
 )
-from patch_extract_price_vapefully import extract_price_vapefully
 
 SHEET_NAME = "Tracker_cen_konkurencji"
 WORKSHEET_INDEX = 0
+
 
 def authorize_gsheet(json_keyfile_path):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -22,19 +22,13 @@ def authorize_gsheet(json_keyfile_path):
     client = gspread.authorize(creds)
     return client
 
+
 def parse_price(val):
     try:
-        return float(str(val).replace(",", ".").strip())
+        return float(str(val).replace("'", "").replace(",", ".").strip())
     except:
         return None
 
-def get_price_vapefully_fixed(url):
-    try:
-        html = get_html(url)
-        return extract_price_vapefully(html)
-    except Exception as e:
-        print(f"[!] Błąd pobierania Vapefully: {e}")
-        return None
 
 def update_sheet():
     client = authorize_gsheet("credentials.json")
@@ -88,7 +82,7 @@ def update_sheet():
 
         competitor_prices = [
             try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
-            try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully_fixed),
+            try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
             try_update("Link CBDRemedium", "Cena CBDRemedium", get_price_cbdremedium),
             try_update("Link Konopnysklep", "Cena Konopnysklep", get_price_konopnysklep),
             try_update("Link Unikatowe", "Cena Unikatowe", get_price_unikatowe),
@@ -97,11 +91,11 @@ def update_sheet():
         ]
         competitor_prices = [p for p in competitor_prices if p is not None]
 
+        dzialanie_row = fields[1:].tolist().index("Działanie") + 1
+        status_row = fields[1:].tolist().index("Status") + 1
+
         if our_price is not None and competitor_prices:
             min_price = min(competitor_prices)
-            dzialanie_row = fields[1:].tolist().index("Działanie") + 1
-            status_row = fields[1:].tolist().index("Status") + 1
-
             dzialanie = round((min_price - 10) - our_price, 2)
             df.iat[dzialanie_row, col_index] = dzialanie
 
@@ -110,16 +104,16 @@ def update_sheet():
             elif 0 < dzialanie <= 20:
                 df.iat[status_row, col_index] = "🟡 Zapas cenowy"
             elif dzialanie > 20:
-                df.iat[status_row, col_index] = "💸 Podnieść cenę"
+                df.iat[status_row, col_index] = "💸 Podnieś cenę"
             elif dzialanie < 0:
                 df.iat[status_row, col_index] = "🔻 Promocja"
         else:
-            status_row = fields[1:].tolist().index("Status") + 1
             df.iat[status_row, col_index] = ""
 
     for row_index in range(1, len(df)):
         row_values = df.iloc[row_index].tolist()
         sheet.update(f"A{row_index+1}", [row_values])
+
 
 if __name__ == "__main__":
     update_sheet()
