@@ -47,15 +47,24 @@ def get_price_vaporshop(url):
     return get_price_from_span_content(url, "product-price current-price-value")
 
 def get_price_vapefully(url):
-    r = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(r.text, "html.parser")
-    promo = soup.select_one("ins > span.woocommerce-Price-amount bdi")
-    if promo:
-        return extract_price(promo.text)
-    regular = soup.select_one("span.woocommerce-Price-amount bdi")
-    if regular:
-        return extract_price(regular.text)
-    return None
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # najpierw próbuj znaleźć cenę promocyjną
+        promo = soup.select_one("p.price ins .woocommerce-Price-amount")
+        if promo:
+            text = promo.get_text()
+        else:
+            # jeżeli nie ma promo, weź zwykłą cenę
+            normal = soup.select_one("p.price > .woocommerce-Price-amount")
+            text = normal.get_text() if normal else ""
+
+        return parse_price(text)
+    except Exception as e:
+        print(f"Błąd przy get_price_vapefully: {e}")
+        return None
 
 def get_price_cbdremedium(url):
     return get_price_from_em_tag(url, "main-price color")
