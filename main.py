@@ -4,13 +4,14 @@ from oauth2client.service_account import ServiceAccountCredentials
 from scraper import (
     get_price_jarajto,
     get_price_vaporshop,
-    get_price_vapefully,
     get_price_cbdremedium,
     get_price_konopnysklep,
     get_price_unikatowe,
     get_price_magicvapo,
-    get_price_vapuj
+    get_price_vapuj,
+    get_html  # <- potrzebne do Vapefully
 )
+from patch_extract_price_vapefully import extract_price_vapefully
 
 SHEET_NAME = "Tracker_cen_konkurencji"
 WORKSHEET_INDEX = 0
@@ -25,6 +26,14 @@ def parse_price(val):
     try:
         return float(str(val).replace(",", ".").strip())
     except:
+        return None
+
+def get_price_vapefully_fixed(url):
+    try:
+        html = get_html(url)
+        return extract_price_vapefully(html)
+    except Exception as e:
+        print(f"[!] Błąd pobierania Vapefully: {e}")
         return None
 
 def update_sheet():
@@ -79,7 +88,7 @@ def update_sheet():
 
         competitor_prices = [
             try_update("Link Vaporshop", "Cena Vaporshop", get_price_vaporshop),
-            try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully),
+            try_update("Link Vapefully", "Cena Vapefully", get_price_vapefully_fixed),
             try_update("Link CBDRemedium", "Cena CBDRemedium", get_price_cbdremedium),
             try_update("Link Konopnysklep", "Cena Konopnysklep", get_price_konopnysklep),
             try_update("Link Unikatowe", "Cena Unikatowe", get_price_unikatowe),
@@ -108,7 +117,6 @@ def update_sheet():
             status_row = fields[1:].tolist().index("Status") + 1
             df.iat[status_row, col_index] = ""
 
-    # Zapis bez nadpisywania wiersza nagłówków
     for row_index in range(1, len(df)):
         row_values = df.iloc[row_index].tolist()
         sheet.update(f"A{row_index+1}", [row_values])
